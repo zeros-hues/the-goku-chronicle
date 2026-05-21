@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { Plus, Pencil, X, Check, Phone } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Switch } from "@/components/ui/switch";
 import SectionLabel from "@/components/SectionLabel";
 import {
   createTeamMember,
