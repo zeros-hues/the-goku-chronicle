@@ -7,7 +7,6 @@ import { Switch } from "@/components/ui/switch";
 import SectionLabel from "@/components/SectionLabel";
 import {
   createTeamMember,
-  updateTeamMember,
   getTeamMembers,
 } from "@/app/actions/team";
 
@@ -19,70 +18,260 @@ type Member = {
   isActive: boolean;
 };
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  background: "transparent",
-  border: "none",
-  borderBottom: "1px solid var(--border)",
-  outline: "none",
-  padding: "6px 0",
-  fontSize: 13,
-  color: "var(--text-primary)",
-  fontFamily: "var(--font-geist-sans, sans-serif)",
+// ─── Shared styles ─────────────────────────────────────────────────────────────
+
+const fieldLabelStyle: React.CSSProperties = {
+  display:       "block",
+  fontFamily:    "var(--font-martian-mono)",
+  fontSize:      10,
+  fontWeight:    500,
+  letterSpacing: "0.10em",
+  textTransform: "uppercase",
+  color:         "var(--text-muted)",
+  marginBottom:  6,
 };
 
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontFamily: "var(--font-geist-mono, monospace)",
-  fontSize: 10,
-  fontWeight: 500,
-  letterSpacing: "0.1em",
-  textTransform: "uppercase" as const,
-  color: "var(--text-muted)",
-  marginBottom: 4,
-};
+function FieldInput({
+  label, value, onChange, type = "text", placeholder, maxLength, autoFocus, required,
+}: {
+  label: string; value: string; onChange: (v: string) => void;
+  type?: string; placeholder?: string; maxLength?: number;
+  autoFocus?: boolean; required?: boolean;
+}) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div>
+      <label style={fieldLabelStyle}>{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        autoFocus={autoFocus}
+        required={required}
+        style={{
+          display:      "block",
+          width:        "100%",
+          height:       40,
+          background:   "var(--bg-ground)",
+          border:       `1.5px solid ${focused ? "var(--text-primary)" : "var(--border-subtle)"}`,
+          borderRadius: 8,
+          outline:      "none",
+          color:        "var(--text-primary)",
+          fontFamily:   "var(--font-instrument-sans)",
+          fontSize:     14,
+          padding:      "0 12px",
+          boxShadow:    focused ? "0 0 0 3px rgba(42,31,20,0.08)" : "none",
+          transition:   "border-color 150ms ease, box-shadow 150ms ease",
+        }}
+      />
+    </div>
+  );
+}
+
+// ─── Avatar ────────────────────────────────────────────────────────────────────
 
 function Avatar({ initials, isActive = true }: { initials: string; isActive?: boolean }) {
   return (
-    <div
-      style={{
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        background: isActive ? "var(--action-primary)" : "var(--surface)",
-        color: isActive ? "var(--action-primary-text)" : "var(--text-muted)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 12,
-        fontWeight: 700,
-        fontFamily: "var(--font-geist-mono, monospace)",
-        flexShrink: 0,
-        border: "1px solid var(--border)",
-      }}
-    >
+    <div style={{
+      width:       36,
+      height:      36,
+      borderRadius:"50%",
+      background:  isActive ? "var(--bg-ink)"    : "var(--bg-active)",
+      color:       isActive ? "var(--text-on-dark)" : "var(--text-secondary)",
+      display:     "flex",
+      alignItems:  "center",
+      justifyContent: "center",
+      fontSize:    11,
+      fontWeight:  700,
+      fontFamily:  "var(--font-martian-mono)",
+      flexShrink:  0,
+    }}>
       {initials || "?"}
     </div>
   );
 }
 
-export default function TeamClient({
-  initialMembers,
-}: {
-  initialMembers: Member[];
-}) {
-  const [members, setMembers] = useState(initialMembers);
-  const [isPending, startTransition] = useTransition();
-  const [showAdd, setShowAdd] = useState(false);
-  const [editMember, setEditMember] = useState<Member | null>(null);
+// ─── Inline edit row ───────────────────────────────────────────────────────────
 
-  const [form, setForm] = useState({ name: "", initials: "", whatsapp: "" });
-  const [editForm, setEditForm] = useState({
-    name: "",
-    initials: "",
-    whatsapp: "",
-    isActive: true,
-  });
+function EditRow({
+  member,
+  onSave,
+  onCancel,
+  isPending,
+}: {
+  member: Member;
+  onSave: (name: string, initials: string) => void;
+  onCancel: () => void;
+  isPending: boolean;
+}) {
+  const [name,     setName]     = useState(member.name);
+  const [initials, setInitials] = useState(member.initials);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !initials.trim()) return;
+    onSave(name.trim(), initials.trim().toUpperCase());
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ padding: "16px 20px" }}>
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <FieldInput label="Name" value={name} onChange={setName} autoFocus required />
+        <FieldInput
+          label="Initials"
+          value={initials}
+          onChange={(v) => setInitials(v.toUpperCase())}
+          placeholder="e.g. DK"
+          maxLength={4}
+          required
+        />
+      </div>
+
+      <div className="flex items-center gap-2">
+        <motion.button
+          type="submit"
+          disabled={isPending}
+          whileTap={{ scale: 0.97 }}
+          style={{
+            display:      "flex",
+            alignItems:   "center",
+            gap:          6,
+            padding:      "0 16px",
+            height:       36,
+            background:   "var(--bg-ink)",
+            color:        "var(--text-on-dark)",
+            border:       "none",
+            borderRadius: 8,
+            fontSize:     13,
+            fontFamily:   "var(--font-instrument-sans)",
+            fontWeight:   500,
+            cursor:       isPending ? "not-allowed" : "pointer",
+            opacity:      isPending ? 0.65 : 1,
+            boxShadow:    "var(--shadow-sm)",
+          }}
+        >
+          <Check size={13} strokeWidth={2} />
+          {isPending ? "Saving…" : "Save"}
+        </motion.button>
+
+        <motion.button
+          type="button"
+          onClick={onCancel}
+          whileTap={{ scale: 0.97 }}
+          style={{
+            display:      "flex",
+            alignItems:   "center",
+            gap:          6,
+            padding:      "0 14px",
+            height:       36,
+            background:   "transparent",
+            color:        "var(--text-secondary)",
+            border:       "1.5px solid var(--border-medium)",
+            borderRadius: 8,
+            fontSize:     13,
+            fontFamily:   "var(--font-instrument-sans)",
+            fontWeight:   500,
+            cursor:       "pointer",
+          }}
+        >
+          <X size={13} strokeWidth={2} />
+          Cancel
+        </motion.button>
+      </div>
+    </form>
+  );
+}
+
+// ─── Display row ───────────────────────────────────────────────────────────────
+
+function DisplayRow({
+  member,
+  onEdit,
+}: {
+  member: Member;
+  onEdit: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <div
+      style={{
+        padding:         "14px 20px",
+        display:         "flex",
+        alignItems:      "center",
+        justifyContent:  "space-between",
+        background:      hovered ? "var(--bg-hover)" : "transparent",
+        transition:      "background 150ms ease",
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div className="flex items-center gap-3">
+        <Avatar initials={member.initials} isActive={member.isActive} />
+        <div>
+          <p style={{
+            fontFamily: "var(--font-instrument-sans)",
+            fontWeight: 500,
+            fontSize:   14,
+            color:      "var(--text-primary)",
+          }}>
+            {member.name}
+          </p>
+          {member.whatsappNumber && (
+            <p style={{
+              fontSize:   11,
+              fontFamily: "var(--font-martian-mono)",
+              color:      "var(--text-muted)",
+              display:    "flex",
+              alignItems: "center",
+              gap:        4,
+              marginTop:  2,
+            }}>
+              <Phone size={9} />
+              {member.whatsappNumber}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <motion.button
+        aria-label={`Edit ${member.name}`}
+        onClick={onEdit}
+        animate={{ scale: hovered ? 1.1 : 1, rotate: hovered ? -8 : 0, opacity: hovered ? 1 : 0 }}
+        transition={{ duration: 0.15 }}
+        style={{
+          width:        32,
+          height:       32,
+          display:      "flex",
+          alignItems:   "center",
+          justifyContent: "center",
+          borderRadius: 6,
+          background:   "transparent",
+          color:        "var(--text-secondary)",
+          border:       "none",
+          cursor:       "pointer",
+        }}
+      >
+        <Pencil size={14} strokeWidth={1.5} />
+      </motion.button>
+    </div>
+  );
+}
+
+// ─── Main component ────────────────────────────────────────────────────────────
+
+export default function TeamClient({ initialMembers }: { initialMembers: Member[] }) {
+  const [members,    setMembers]   = useState(initialMembers);
+  const [isPending,  startTransition] = useTransition();
+  const [showAdd,    setShowAdd]   = useState(false);
+  const [editingId,  setEditingId] = useState<string | null>(null);
+
+  // Add-member form state
+  const [addForm, setAddForm] = useState({ name: "", initials: "", whatsapp: "" });
 
   async function refresh() {
     const updated = await getTeamMembers();
@@ -91,52 +280,49 @@ export default function TeamClient({
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name.trim() || !form.initials.trim()) return;
+    if (!addForm.name.trim() || !addForm.initials.trim()) return;
     startTransition(async () => {
       await createTeamMember(
-        form.name.trim(),
-        form.initials.trim().toUpperCase(),
-        form.whatsapp.trim() || undefined
+        addForm.name.trim(),
+        addForm.initials.trim().toUpperCase(),
+        addForm.whatsapp.trim() || undefined
       );
-      setForm({ name: "", initials: "", whatsapp: "" });
+      setAddForm({ name: "", initials: "", whatsapp: "" });
       setShowAdd(false);
       await refresh();
     });
   }
 
-  function openEdit(member: Member) {
-    setEditMember(member);
-    setEditForm({
-      name: member.name,
-      initials: member.initials,
-      whatsapp: member.whatsappNumber || "",
-      isActive: member.isActive,
-    });
-  }
-
-  async function handleUpdate(e: React.FormEvent) {
-    e.preventDefault();
-    if (!editMember || !editForm.name.trim() || !editForm.initials.trim()) return;
+  async function handleSave(id: string, name: string, initials: string) {
     startTransition(async () => {
-      await updateTeamMember(
-        editMember.id,
-        editForm.name.trim(),
-        editForm.initials.trim().toUpperCase(),
-        editForm.whatsapp.trim() || undefined,
-        editForm.isActive
-      );
-      setEditMember(null);
-      await refresh();
+      const res = await fetch(`/api/team/${id}`, {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ name, initials }),
+      });
+      if (res.ok) {
+        setEditingId(null);
+        await refresh();
+      }
     });
   }
 
-  const activeMembers = members.filter((m) => m.isActive);
-  const inactiveMembers = members.filter((m) => !m.isActive);
+  const activeMembers   = members.filter(m => m.isActive);
+  const inactiveMembers = members.filter(m => !m.isActive);
+
+  const rowBorder = "1px solid var(--border-ghost)";
+
+  // Fade in/out variants for display ↔ edit switch
+  const slideIn  = { opacity: 0, y: -6 };
+  const visible  = { opacity: 1, y: 0 };
+  const slideOut = { opacity: 0, y: 6 };
+  const rowTrans = { duration: 0.16, ease: [0, 0, 0.2, 1] as const };
 
   return (
     <div className="space-y-8">
-      {/* Add member form */}
-      <AnimatePresence>
+
+      {/* ── Add member panel ──────────────────────────────────────────── */}
+      <AnimatePresence initial={false}>
         {showAdd && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
@@ -145,115 +331,80 @@ export default function TeamClient({
             transition={{ duration: 0.2 }}
             style={{ overflow: "hidden" }}
           >
-            <div
-              style={{
-                background: "var(--card-bg)",
-                border: "1px solid var(--border)",
-                borderRadius: 12,
-                padding: 24,
-              }}
-            >
-              {/* Preview avatar */}
-              <div className="flex items-center gap-4 mb-6">
-                <Avatar initials={form.initials || "?"} />
+            <div style={{
+              background:   "var(--bg-surface)",
+              border:       "1px solid var(--border-ghost)",
+              borderRadius: 12,
+              boxShadow:    "var(--shadow-sm)",
+              padding:      24,
+            }}>
+              {/* Live preview */}
+              <div className="flex items-center gap-3 mb-6">
+                <Avatar initials={addForm.initials || "?"} />
                 <div>
-                  <p style={{ fontWeight: 600, fontSize: 15, color: "var(--text-primary)" }}>
-                    {form.name || "New Member"}
+                  <p style={{ fontFamily: "var(--font-instrument-sans)", fontWeight: 500, fontSize: 15, color: "var(--text-primary)" }}>
+                    {addForm.name || "New Member"}
                   </p>
-                  <p
-                    style={{
-                      fontSize: 11,
-                      fontFamily: "var(--font-geist-mono, monospace)",
-                      color: "var(--text-muted)",
-                    }}
-                  >
-                    {form.initials || "—"}
+                  <p style={{ fontFamily: "var(--font-martian-mono)", fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                    {addForm.initials || "—"}
                   </p>
                 </div>
               </div>
 
               <form onSubmit={handleAdd}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <label style={labelStyle}>Full Name</label>
-                    <input
-                      autoFocus
-                      type="text"
-                      value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      style={inputStyle}
-                      placeholder="e.g. Dinesh K"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Initials</label>
-                    <input
-                      type="text"
-                      value={form.initials}
-                      onChange={(e) => setForm({ ...form, initials: e.target.value.toUpperCase() })}
-                      style={inputStyle}
-                      placeholder="e.g. DK"
-                      maxLength={4}
-                      required
-                    />
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+                  <FieldInput label="Full Name"  value={addForm.name}    onChange={v => setAddForm({ ...addForm, name: v })}    placeholder="e.g. Dinesh K" autoFocus required />
+                  <FieldInput label="Initials"   value={addForm.initials} onChange={v => setAddForm({ ...addForm, initials: v.toUpperCase() })} placeholder="DK" maxLength={4} required />
                   <div className="sm:col-span-2">
-                    <label style={labelStyle}>WhatsApp (optional)</label>
+                    <label style={fieldLabelStyle}>WhatsApp (optional)</label>
                     <div style={{ position: "relative" }}>
-                      <Phone size={12} style={{ position: "absolute", left: 0, top: 10, color: "var(--text-muted)" }} />
+                      <Phone size={12} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} />
                       <input
                         type="tel"
-                        value={form.whatsapp}
-                        onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
-                        style={{ ...inputStyle, paddingLeft: 20 }}
+                        value={addForm.whatsapp}
+                        onChange={e => setAddForm({ ...addForm, whatsapp: e.target.value })}
                         placeholder="+91 9876543210"
+                        style={{
+                          display:      "block",
+                          width:        "100%",
+                          height:       40,
+                          background:   "var(--bg-ground)",
+                          border:       "1.5px solid var(--border-subtle)",
+                          borderRadius: 8,
+                          outline:      "none",
+                          color:        "var(--text-primary)",
+                          fontFamily:   "var(--font-instrument-sans)",
+                          fontSize:     14,
+                          padding:      "0 12px 0 32px",
+                        }}
                       />
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <motion.button
-                    type="submit"
-                    disabled={isPending}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+
+                <div className="flex gap-2">
+                  <motion.button type="submit" disabled={isPending} whileTap={{ scale: 0.97 }}
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "8px 20px",
-                      background: "var(--action-primary)",
-                      color: "var(--action-primary-text)",
-                      border: "none",
-                      borderRadius: 8,
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: isPending ? "not-allowed" : "pointer",
-                      opacity: isPending ? 0.6 : 1,
-                      fontFamily: "var(--font-geist-sans, sans-serif)",
-                    }}
-                  >
-                    <Check size={14} /> Save Member
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "0 18px", height: 38,
+                      background: "var(--bg-ink)", color: "var(--text-on-dark)",
+                      border: "none", borderRadius: 8,
+                      fontSize: 13, fontFamily: "var(--font-instrument-sans)", fontWeight: 500,
+                      cursor: isPending ? "not-allowed" : "pointer", opacity: isPending ? 0.65 : 1,
+                      boxShadow: "var(--shadow-sm)",
+                    }}>
+                    <Check size={14} strokeWidth={2} /> Save Member
                   </motion.button>
-                  <button
-                    type="button"
-                    onClick={() => setShowAdd(false)}
+                  <button type="button" onClick={() => setShowAdd(false)}
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "8px 16px",
-                      background: "transparent",
-                      color: "var(--text-muted)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 8,
-                      fontSize: 13,
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "0 14px", height: 38,
+                      background: "transparent", color: "var(--text-secondary)",
+                      border: "1.5px solid var(--border-medium)", borderRadius: 8,
+                      fontSize: 13, fontFamily: "var(--font-instrument-sans)", fontWeight: 500,
                       cursor: "pointer",
-                      fontFamily: "var(--font-geist-sans, sans-serif)",
-                    }}
-                  >
-                    <X size={14} /> Cancel
+                    }}>
+                    <X size={14} strokeWidth={2} /> Cancel
                   </button>
                 </div>
               </form>
@@ -262,274 +413,142 @@ export default function TeamClient({
         )}
       </AnimatePresence>
 
-      {/* Active members */}
+      {/* ── Active members ─────────────────────────────────────────────── */}
       <section>
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between mb-3">
           <SectionLabel>Team Members</SectionLabel>
           {!showAdd && (
             <motion.button
               onClick={() => setShowAdd(true)}
-              whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 14px",
-                background: "var(--action-primary)",
-                color: "var(--action-primary-text)",
-                border: "none",
-                borderRadius: 8,
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: "pointer",
-                fontFamily: "var(--font-geist-sans, sans-serif)",
-                marginTop: -4,
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "0 14px", height: 34,
+                background: "var(--bg-ink)", color: "var(--text-on-dark)",
+                border: "none", borderRadius: 8,
+                fontSize: 13, fontFamily: "var(--font-instrument-sans)", fontWeight: 500,
+                cursor: "pointer", boxShadow: "var(--shadow-sm)",
               }}
             >
-              <Plus size={12} /> Add Member
+              <Plus size={13} strokeWidth={2} /> Add Member
             </motion.button>
           )}
         </div>
 
-        <motion.div
-          style={{
-            background: "var(--card-bg)",
-            border: "1px solid var(--border)",
-            borderRadius: 12,
-            overflow: "hidden",
-          }}
-        >
+        <div style={{
+          background:   "var(--bg-surface)",
+          border:       "1px solid var(--border-ghost)",
+          borderRadius: 12,
+          boxShadow:    "var(--shadow-sm)",
+          overflow:     "hidden",
+        }}>
           <AnimatePresence initial={false}>
-            {activeMembers.map((member, i) => (
+            {activeMembers.map((member) => (
               <motion.div
                 key={member.id}
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 8 }}
-                transition={{ duration: 0.2, delay: i * 0.04 }}
-                style={{ borderBottom: "1px solid var(--border)" }}
-                className="group"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                style={{ borderBottom: rowBorder }}
               >
-                {editMember?.id === member.id ? (
-                  <form onSubmit={handleUpdate} style={{ padding: "20px 20px" }}>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <label style={labelStyle}>Name</label>
-                        <input
-                          autoFocus
-                          type="text"
-                          value={editForm.name}
-                          onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                          style={inputStyle}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Initials</label>
-                        <input
-                          type="text"
-                          value={editForm.initials}
-                          onChange={(e) =>
-                            setEditForm({ ...editForm, initials: e.target.value.toUpperCase() })
-                          }
-                          style={inputStyle}
-                          maxLength={4}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label style={labelStyle}>WhatsApp</label>
-                        <input
-                          type="tel"
-                          value={editForm.whatsapp}
-                          onChange={(e) => setEditForm({ ...editForm, whatsapp: e.target.value })}
-                          style={inputStyle}
-                        />
-                      </div>
-                      <div className="flex items-center gap-3 pt-4">
-                        <Switch
-                          id={`active-${member.id}`}
-                          checked={editForm.isActive}
-                          onCheckedChange={(v) => setEditForm({ ...editForm, isActive: v })}
-                        />
-                        <label htmlFor={`active-${member.id}`} style={{ fontSize: 13, color: "var(--text-primary)", cursor: "pointer" }}>
-                          Active
-                        </label>
-                      </div>
-                    </div>
-                    <div className="flex gap-3">
-                      <motion.button
-                        type="submit"
-                        disabled={isPending}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "7px 16px",
-                          background: "var(--action-primary)",
-                          color: "var(--action-primary-text)",
-                          border: "none",
-                          borderRadius: 7,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          cursor: isPending ? "not-allowed" : "pointer",
-                          fontFamily: "var(--font-geist-sans, sans-serif)",
-                        }}
-                      >
-                        <Check size={13} /> Save
-                      </motion.button>
-                      <button
-                        type="button"
-                        onClick={() => setEditMember(null)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "7px 14px",
-                          background: "transparent",
-                          color: "var(--text-muted)",
-                          border: "1px solid var(--border)",
-                          borderRadius: 7,
-                          fontSize: 12,
-                          cursor: "pointer",
-                          fontFamily: "var(--font-geist-sans, sans-serif)",
-                        }}
-                      >
-                        <X size={13} /> Cancel
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <div
-                    style={{
-                      padding: "14px 20px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <div className="flex items-center gap-4">
-                      <Avatar initials={member.initials} />
-                      <div>
-                        <p style={{ fontWeight: 600, fontSize: 14, color: "var(--text-primary)" }}>
-                          {member.name}
-                        </p>
-                        {member.whatsappNumber && (
-                          <p
-                            style={{
-                              fontSize: 11,
-                              color: "var(--text-muted)",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 4,
-                              marginTop: 2,
-                            }}
-                          >
-                            <Phone size={9} />
-                            {member.whatsappNumber}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <motion.button
-                      onClick={() => openEdit(member)}
-                      whileHover={{ rotate: -10, scale: 1.1 }}
-                      style={{
-                        width: 32,
-                        height: 32,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        borderRadius: 6,
-                        background: "transparent",
-                        color: "var(--text-muted)",
-                        border: "none",
-                        cursor: "pointer",
-                        opacity: 0,
-                      }}
-                      className="group-hover:opacity-100 transition-opacity"
+                {/* Display ↔ Edit toggle with AnimatePresence */}
+                <AnimatePresence mode="wait" initial={false}>
+                  {editingId === member.id ? (
+                    <motion.div
+                      key="edit"
+                      initial={slideIn}
+                      animate={visible}
+                      exit={slideOut}
+                      transition={rowTrans}
                     >
-                      <Pencil size={14} />
-                    </motion.button>
-                  </div>
-                )}
+                      <EditRow
+                        member={member}
+                        onSave={(name, initials) => handleSave(member.id, name, initials)}
+                        onCancel={() => setEditingId(null)}
+                        isPending={isPending}
+                      />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="display"
+                      initial={slideIn}
+                      animate={visible}
+                      exit={slideOut}
+                      transition={rowTrans}
+                    >
+                      <DisplayRow
+                        member={member}
+                        onEdit={() => setEditingId(member.id)}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             ))}
           </AnimatePresence>
 
-          {members.length === 0 && (
-            <div
-              style={{
-                padding: "40px 24px",
-                textAlign: "center",
-                fontSize: 14,
-                color: "var(--text-muted)",
-                fontStyle: "italic",
-              }}
-            >
+          {activeMembers.length === 0 && (
+            <div style={{ padding: "40px 24px", textAlign: "center", fontSize: 14, color: "var(--text-muted)", fontStyle: "italic", fontFamily: "var(--font-instrument-sans)" }}>
               No team members yet
             </div>
           )}
-        </motion.div>
+        </div>
       </section>
 
-      {/* Inactive members */}
+      {/* ── Inactive members ───────────────────────────────────────────── */}
       {inactiveMembers.length > 0 && (
         <section>
           <SectionLabel>Inactive</SectionLabel>
-          <motion.div
-            style={{
-              background: "var(--card-bg)",
-              border: "1px solid var(--border)",
-              borderRadius: 12,
-              overflow: "hidden",
-            }}
-          >
+          <div style={{
+            background:   "var(--bg-surface)",
+            border:       "1px solid var(--border-ghost)",
+            borderRadius: 12,
+            overflow:     "hidden",
+            marginTop:    12,
+            opacity:      0.65,
+          }}>
             {inactiveMembers.map((member, i) => (
               <div
                 key={member.id}
                 style={{
-                  padding: "14px 20px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  borderBottom: i < inactiveMembers.length - 1 ? "1px solid var(--border)" : undefined,
-                  opacity: 0.55,
+                  borderBottom: i < inactiveMembers.length - 1 ? rowBorder : undefined,
                 }}
-                className="group"
               >
-                <div className="flex items-center gap-4">
-                  <Avatar initials={member.initials} isActive={false} />
-                  <p style={{ fontWeight: 500, fontSize: 14, color: "var(--text-secondary)" }}>
-                    {member.name}
-                  </p>
-                </div>
-                <motion.button
-                  onClick={() => openEdit(member)}
-                  whileHover={{ scale: 1.1 }}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: 6,
-                    background: "transparent",
-                    color: "var(--text-muted)",
-                    border: "none",
-                    cursor: "pointer",
-                    opacity: 0,
-                  }}
-                  className="group-hover:opacity-100 transition-opacity"
-                >
-                  <Pencil size={14} />
-                </motion.button>
+                <AnimatePresence mode="wait" initial={false}>
+                  {editingId === member.id ? (
+                    <motion.div
+                      key="edit"
+                      initial={slideIn}
+                      animate={visible}
+                      exit={slideOut}
+                      transition={rowTrans}
+                    >
+                      <EditRow
+                        member={member}
+                        onSave={(name, initials) => handleSave(member.id, name, initials)}
+                        onCancel={() => setEditingId(null)}
+                        isPending={isPending}
+                      />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="display"
+                      initial={slideIn}
+                      animate={visible}
+                      exit={slideOut}
+                      transition={rowTrans}
+                    >
+                      <DisplayRow
+                        member={member}
+                        onEdit={() => setEditingId(member.id)}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             ))}
-          </motion.div>
+          </div>
         </section>
       )}
     </div>
