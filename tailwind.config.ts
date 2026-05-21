@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  darkMode: ["class"],
+  darkMode: ["class", '[data-theme="dark"]'],
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -10,64 +10,91 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-geist-sans)", "system-ui", "sans-serif"],
-        mono: ["var(--font-geist-mono)", "Menlo", "monospace"],
+        fraunces:          ["var(--font-fraunces)", "Georgia", "serif"],
+        sans:              ["var(--font-instrument-sans)", "system-ui", "sans-serif"],
+        mono:              ["var(--font-martian-mono)", "ui-monospace", "monospace"],
+        "instrument-sans": ["var(--font-instrument-sans)", "system-ui", "sans-serif"],
+        "martian-mono":    ["var(--font-martian-mono)", "ui-monospace", "monospace"],
       },
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
-        card: "var(--card-bg)",
-        border: "var(--border)",
-        "border-strong": "var(--border-strong)",
-        "text-primary": "var(--text-primary)",
-        "text-secondary": "var(--text-secondary)",
-        "text-muted": "var(--text-muted)",
-        "accent-bg": "var(--accent-bg)",
-        "action-primary": "var(--action-primary)",
-        "action-primary-text": "var(--action-primary-text)",
-        "sidebar-bg": "var(--sidebar-bg)",
-        "sidebar-text": "var(--sidebar-text)",
-        "sidebar-muted": "var(--sidebar-muted)",
-        destructive: "var(--destructive)",
-        // shadcn compat
+        /* Chronicle tokens */
+        "bg-ground":          "var(--bg-ground)",
+        "bg-surface":         "var(--bg-surface)",
+        "bg-overlay":         "var(--bg-overlay)",
+        "bg-sidebar":         "var(--bg-sidebar)",
+        "bg-hover":           "var(--bg-hover)",
+        "bg-active":          "var(--bg-active)",
+
+        "border-ghost":       "var(--border-ghost)",
+        "border-subtle":      "var(--border-subtle)",
+        "border-medium":      "var(--border-medium)",
+        "border-strong":      "var(--border-strong)",
+
+        "text-primary":       "var(--text-primary)",
+        "text-secondary":     "var(--text-secondary)",
+        "text-muted":         "var(--text-muted)",
+        "text-on-dark":       "var(--text-on-dark)",
+        "text-muted-dark":    "var(--text-muted-dark)",
+
+        "color-destructive":  "var(--color-destructive)",
+        "color-success":      "var(--color-success)",
+
+        /* shadcn compat */
+        background:           "var(--background)",
+        foreground:           "var(--foreground)",
         primary: {
-          DEFAULT: "var(--action-primary)",
-          foreground: "var(--action-primary-text)",
+          DEFAULT:            "var(--primary)",
+          foreground:         "var(--primary-foreground)",
         },
         secondary: {
-          DEFAULT: "var(--accent-bg)",
-          foreground: "var(--text-primary)",
+          DEFAULT:            "var(--secondary)",
+          foreground:         "var(--secondary-foreground)",
         },
         muted: {
-          DEFAULT: "var(--accent-bg)",
-          foreground: "var(--text-muted)",
+          DEFAULT:            "var(--muted)",
+          foreground:         "var(--muted-foreground)",
         },
-        input: "var(--border)",
-        ring: "var(--border-strong)",
+        accent: {
+          DEFAULT:            "var(--accent)",
+          foreground:         "var(--accent-foreground)",
+        },
+        popover: {
+          DEFAULT:            "var(--popover)",
+          foreground:         "var(--popover-foreground)",
+        },
+        card: {
+          DEFAULT:            "var(--card)",
+          foreground:         "var(--card-foreground)",
+        },
+        border:               "var(--border)",
+        input:                "var(--input)",
+        ring:                 "var(--ring)",
+        destructive: {
+          DEFAULT:            "var(--destructive)",
+          foreground:         "var(--destructive-foreground)",
+        },
       },
       borderRadius: {
         DEFAULT: "4px",
-        sm: "2px",
-        md: "4px",
-        lg: "6px",
-        xl: "8px",
+        sm:      "2px",
+        md:      "4px",
+        lg:      "4px",
+        xl:      "4px",
+        pill:    "3px",
+        full:    "9999px",
       },
       keyframes: {
         shimmer: {
-          "0%": { transform: "translateX(-100%)" },
+          "0%":   { transform: "translateX(-100%)" },
           "100%": { transform: "translateX(100%)" },
-        },
-        "pulse-dot": {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.4" },
         },
       },
       animation: {
-        shimmer: "shimmer 600ms ease forwards",
-        "pulse-dot": "pulse-dot 1.5s ease infinite",
+        shimmer: "shimmer 500ms ease forwards",
       },
     },
   },
   plugins: [],
 };
+
 export default config;

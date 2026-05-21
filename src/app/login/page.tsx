@@ -1,20 +1,109 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
+import { YearGrid } from "@/components/chronicle/YearGrid";
 
-const InkShader = dynamic(() => import("@/components/InkShader"), { ssr: false });
+const PaperShader = dynamic(
+  () => import("@/components/chronicle/PaperShader"),
+  { ssr: false }
+);
+
+// ─── Stagger wrapper ──────────────────────────────────────────────────────────
+
+function FadeUp({ children, delay }: { children: React.ReactNode; delay: number }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: [0, 0, 0.2, 1], delay }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+// ─── Form field — static label above, bottom-border input ────────────────────
+
+function FormField({
+  label, type, value, onChange, hasError, autoFocus,
+}: {
+  label: string;
+  type: string;
+  value: string;
+  onChange: (v: string) => void;
+  hasError?: boolean;
+  autoFocus?: boolean;
+}) {
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <div>
+      <label
+        style={{
+          display:       "block",
+          fontFamily:    "var(--font-martian-mono, 'Courier New', monospace)",
+          fontSize:      10,
+          textTransform: "uppercase",
+          letterSpacing: "0.10em",
+          color:         "var(--text-muted)",
+          marginBottom:  8,
+        }}
+      >
+        {label}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        autoFocus={autoFocus}
+        required
+        style={{
+          display:      "block",
+          width:        "100%",
+          height:       44,
+          background:   "var(--bg-ground)",
+          border:       `1.5px solid ${hasError ? "var(--color-destructive)" : focused ? "var(--text-primary)" : "var(--border-subtle)"}`,
+          borderRadius: 8,
+          outline:      "none",
+          color:        "var(--text-primary)",
+          fontFamily:   "var(--font-instrument-sans, system-ui, sans-serif)",
+          fontSize:     14,
+          padding:      "0 14px",
+          boxShadow:    focused ? "0 0 0 3px rgba(42,31,20,0.08)" : "none",
+          transition:   "border-color 150ms ease, box-shadow 150ms ease",
+        }}
+      />
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [error,    setError]    = useState("");
+  const [loading,  setLoading]  = useState(false);
+  const [shaking,  setShaking]  = useState(false);
+  const [gridData, setGridData] = useState<Record<string, number>>({});
+  const [gridYear, setGridYear] = useState(new Date().getFullYear());
+
+  useEffect(() => {
+    fetch("/api/year-grid")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.year) setGridYear(d.year);
+        if (d.days) setGridData(d.days);
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,218 +120,258 @@ export default function LoginPage() {
 
     if (result?.error) {
       setError("Invalid username or password");
+      setShaking(true);
+      setTimeout(() => setShaking(false), 400);
     } else {
       router.push("/timesheet");
       router.refresh();
     }
   }
 
+  const D = 0.3; // base delay — let shader warm up
+
   return (
-    <div className="min-h-screen flex">
-      {/* Left panel — Ink Shader (60%) — hidden on mobile */}
-      <div className="hidden md:block relative" style={{ flex: "0 0 60%" }}>
-        <InkShader className="absolute inset-0" />
+    <div
+      style={{
+        position:   "fixed",
+        inset:      0,
+        overflow:   "hidden",
+      }}
+    >
+      {/* ── Paper shader fills everything ─────────────────────────────── */}
+      <div style={{ position: "absolute", inset: 0 }}>
+        <PaperShader className="w-full h-full" />
+      </div>
 
-        {/* Grain overlay */}
+      {/* ── Left panel — 60% — YearGrid ───────────────────────────────── */}
+      <div
+        className="hidden md:block"
+        style={{
+          position: "absolute",
+          left:     0,
+          top:      0,
+          bottom:   0,
+          width:    "60%",
+        }}
+      >
+        {/* Centered grid canvas with padding */}
         <div
-          className="absolute inset-0 pointer-events-none"
           style={{
-            backgroundImage:
-              "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E\")",
-            mixBlendMode: "overlay",
+            position:       "absolute",
+            inset:          0,
+            display:        "flex",
+            alignItems:     "center",
+            justifyContent: "center",
+            padding:        "48px",
           }}
-        />
+        >
+          <div style={{ position: "relative", width: "100%", height: "100%" }}>
+            <YearGrid
+              data={gridData}
+              year={gridYear}
+              aria-label={`Studio work record for ${gridYear}`}
+            />
+          </div>
+        </div>
 
-        {/* Bottom text overlay */}
-        <div className="absolute bottom-10 left-10">
+        {/* Bottom-left wordmark overlay */}
+        <div
+          style={{
+            position: "absolute",
+            left:     48,
+            bottom:   52,
+            zIndex:   2,
+          }}
+        >
           <p
-            className="font-mono text-white"
+            className="font-fraunces"
             style={{
-              fontSize: 48,
-              fontWeight: 700,
-              letterSpacing: "0.15em",
-              opacity: 0.08,
-              lineHeight: 1,
+              fontVariationSettings: "'opsz' 72, 'WONK' 0",
+              fontWeight:            700,
+              fontSize:              48,
+              lineHeight:            1,
+              letterSpacing:         "-0.01em",
+              color:                 "var(--text-primary)",
+              opacity:               0.08,
             }}
           >
             CHRONICLE
           </p>
           <p
-            className="font-mono text-white mt-1"
-            style={{ fontSize: 11, opacity: 0.2, letterSpacing: "0.1em" }}
+            style={{
+              fontFamily:    "var(--font-martian-mono, 'Courier New', monospace)",
+              fontSize:      10,
+              textTransform: "uppercase",
+              letterSpacing: "0.12em",
+              color:         "var(--text-secondary)",
+              opacity:       0.25,
+              marginTop:     6,
+            }}
           >
-            Goku Studio Internal
+            Goku Studio
           </p>
         </div>
       </div>
 
-      {/* Right panel — Login Form (40%) */}
+      {/* ── Right panel — 40% — login form ────────────────────────────── */}
       <div
-        className="relative flex-1 flex items-center justify-center"
-        style={{ background: "#0E0E0D" }}
+        style={{
+          position:       "absolute",
+          right:          0,
+          top:            0,
+          bottom:         0,
+          width:          "40%",
+          background:     "var(--bg-surface)",
+          borderLeft:     "1px solid var(--border-ghost)",
+          display:        "flex",
+          alignItems:     "center",
+          justifyContent: "center",
+        }}
+        className="md:w-[40%] w-full"
       >
-        {/* Mobile: blurred shader behind */}
-        <div className="md:hidden absolute inset-0 overflow-hidden">
-          <InkShader className="absolute inset-0 scale-110" />
-          <div className="absolute inset-0" style={{ backdropFilter: "blur(20px)" }} />
-        </div>
-
-        {/* Grain on right panel */}
+        {/* Mobile: full screen with no left panel */}
         <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundImage:
-              "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E\")",
-          }}
+          className="md:hidden absolute inset-0"
+          style={{ borderLeft: "none" }}
         />
 
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-          className="relative z-10 w-full max-w-sm px-12 py-12"
+        <div
+          style={{
+            position:  "relative",
+            zIndex:    1,
+            width:     "100%",
+            maxWidth:  320,
+            padding:   "0 24px",
+          }}
         >
           {/* Wordmark */}
-          <div className="mb-10">
+          <FadeUp delay={D}>
             <p
-              className="font-mono tracking-widest"
+              className="font-fraunces"
               style={{
-                fontSize: 24,
-                fontWeight: 700,
-                letterSpacing: "0.15em",
-                color: "#ECEAE4",
-                textTransform: "uppercase",
+                fontVariationSettings: "'opsz' 48, 'WONK' 0",
+                fontWeight:            700,
+                fontSize:              32,
+                lineHeight:            "36px",
+                letterSpacing:         "-0.01em",
+                color:                 "var(--text-primary)",
               }}
             >
               CHRONICLE
             </p>
-            <p className="mt-1" style={{ fontSize: 12, color: "#6B6966" }}>
-              Studio Timesheet
-            </p>
-          </div>
+          </FadeUp>
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Username */}
-            <div className="relative">
-              <motion.label
-                animate={{
-                  y: focusedField === "username" || username ? -20 : 0,
-                  scale: focusedField === "username" || username ? 0.85 : 1,
-                  color:
-                    focusedField === "username" ? "#ECEAE4" : "#6B6966",
-                }}
-                transition={{ duration: 0.15, ease: "easeOut" }}
-                className="absolute left-0 top-2 origin-left font-mono pointer-events-none"
-                style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}
-              >
-                Username
-              </motion.label>
-              <input
+          <FadeUp delay={D + 0.025}>
+            <p
+              style={{
+                fontFamily:    "var(--font-martian-mono, 'Courier New', monospace)",
+                fontSize:      11,
+                textTransform: "uppercase",
+                letterSpacing: "0.12em",
+                color:         "var(--text-secondary)",
+                marginTop:     8,
+              }}
+            >
+              Goku Studio · {gridYear}
+            </p>
+          </FadeUp>
+
+          {/* Form */}
+          <motion.form
+            onSubmit={handleSubmit}
+            animate={shaking ? { x: [0, -6, 6, -6, 6, -4, 4, 0] } : { x: 0 }}
+            transition={{ duration: 0.35, ease: "linear" }}
+            style={{ marginTop: 36 }}
+          >
+            <FadeUp delay={D + 0.05}>
+              <FormField
+                label="Username"
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                onFocus={() => setFocusedField("username")}
-                onBlur={() => setFocusedField(null)}
-                className="w-full pt-6 pb-2 bg-transparent outline-none"
-                style={{
-                  borderBottom: `1px solid ${
-                    focusedField === "username" ? "#ECEAE4" : "#2A2A28"
-                  }`,
-                  color: "#ECEAE4",
-                  fontSize: 14,
-                  transition: "border-color 200ms ease",
-                }}
-                required
+                onChange={setUsername}
                 autoFocus
               />
-            </div>
+            </FadeUp>
 
-            {/* Password */}
-            <div className="relative">
-              <motion.label
-                animate={{
-                  y: focusedField === "password" || password ? -20 : 0,
-                  scale: focusedField === "password" || password ? 0.85 : 1,
-                  color:
-                    focusedField === "password" ? "#ECEAE4" : "#6B6966",
-                }}
-                transition={{ duration: 0.15, ease: "easeOut" }}
-                className="absolute left-0 top-2 origin-left font-mono pointer-events-none"
-                style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}
-              >
-                Password
-              </motion.label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onFocus={() => setFocusedField("password")}
-                onBlur={() => setFocusedField(null)}
-                className="w-full pt-6 pb-2 bg-transparent outline-none"
-                style={{
-                  borderBottom: `1px solid ${
-                    error
-                      ? "#E55A4E"
-                      : focusedField === "password"
-                      ? "#ECEAE4"
-                      : "#2A2A28"
-                  }`,
-                  color: "#ECEAE4",
-                  fontSize: 14,
-                  transition: "border-color 200ms ease",
-                }}
-                required
-              />
-            </div>
+            <FadeUp delay={D + 0.075}>
+              <div style={{ marginTop: 28 }}>
+                <FormField
+                  label="Password"
+                  type="password"
+                  value={password}
+                  onChange={setPassword}
+                  hasError={!!error}
+                />
+              </div>
+            </FadeUp>
 
             <AnimatePresence>
               {error && (
                 <motion.p
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  style={{ fontSize: 12, color: "#E55A4E" }}
+                  transition={{ duration: 0.1 }}
+                  style={{
+                    fontFamily:    "var(--font-martian-mono, 'Courier New', monospace)",
+                    fontSize:      11,
+                    color:         "var(--color-destructive)",
+                    marginTop:     8,
+                    letterSpacing: "0.02em",
+                  }}
                 >
                   {error}
                 </motion.p>
               )}
             </AnimatePresence>
 
-            {/* Sign in button */}
-            <motion.button
-              type="submit"
-              disabled={loading}
-              whileTap={{ scale: 0.97 }}
-              className="relative w-full overflow-hidden font-mono"
-              style={{
-                background: "#ECEAE4",
-                color: "#0E0E0D",
-                padding: "14px 0",
-                fontSize: 13,
-                fontWeight: 500,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                border: "none",
-                borderRadius: 2,
-                cursor: loading ? "not-allowed" : "pointer",
-                opacity: loading ? 0.7 : 1,
-              }}
-            >
-              {/* Shimmer on hover */}
-              <motion.div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background:
-                    "linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)",
-                  transform: "translateX(-100%)",
-                }}
-                whileHover={{ transform: "translateX(100%)" }}
-                transition={{ duration: 0.6, ease: "easeInOut" }}
-              />
-              {loading ? "Signing in…" : "Sign In"}
-            </motion.button>
-          </form>
-        </motion.div>
+            <FadeUp delay={D + 0.1}>
+              <div style={{ marginTop: 28 }}>
+                <motion.button
+                  type="submit"
+                  disabled={loading}
+                  whileHover={{ opacity: 0.88 }}
+                  whileTap={{ scale: 0.97, transition: { duration: 0.08 } }}
+                  style={{
+                    position:       "relative",
+                    display:        "flex",
+                    alignItems:     "center",
+                    justifyContent: "center",
+                    overflow:       "hidden",
+                    width:          "100%",
+                    height:         48,
+                    background:     "var(--bg-ink)",
+                    color:          "var(--text-on-dark)",
+                    border:         "none",
+                    borderRadius:   8,
+                    boxShadow:      "var(--shadow-md)",
+                    fontFamily:     "var(--font-martian-mono, 'Courier New', monospace)",
+                    fontSize:       13,
+                    fontWeight:     500,
+                    letterSpacing:  "0.08em",
+                    textTransform:  "uppercase",
+                    cursor:         loading ? "not-allowed" : "pointer",
+                    opacity:        loading ? 0.65 : 1,
+                  }}
+                >
+                  {/* Shimmer sweep on hover */}
+                  <motion.div
+                    initial={{ x: "-100%" }}
+                    whileHover={{ x: "100%" }}
+                    transition={{ duration: 0.5, ease: "easeInOut" }}
+                    style={{
+                      position:      "absolute",
+                      inset:         0,
+                      background:    "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%)",
+                      pointerEvents: "none",
+                    }}
+                  />
+                  {loading ? "Signing in…" : "Sign In"}
+                </motion.button>
+              </div>
+            </FadeUp>
+          </motion.form>
+        </div>
       </div>
     </div>
   );

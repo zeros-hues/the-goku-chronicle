@@ -15,32 +15,20 @@ export default async function NewEntryPage() {
 
   return (
     <PageMotion>
-      <div className="p-6 max-w-2xl">
-        <div className="mb-8">
-          <p
-            style={{
-              fontFamily: "var(--font-geist-mono, monospace)",
-              fontSize: 11,
-              fontWeight: 500,
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "var(--text-muted)",
-              marginBottom: 8,
-            }}
-          >
-            Chronicle
-          </p>
-          <h1
-            style={{
-              fontSize: 28,
-              fontWeight: 700,
-              letterSpacing: "-0.02em",
-              color: "var(--text-primary)",
-            }}
-          >
-            New Entry
-          </h1>
-        </div>
+      <div style={{ padding: "48px", maxWidth: 640 }}>
+        <h1
+          style={{
+            fontFamily:    "var(--font-instrument-sans)",
+            fontSize:      20,
+            fontWeight:    500,
+            color:         "var(--text-primary)",
+            letterSpacing: "-0.02em",
+            lineHeight:    "28px",
+            marginBottom:  32,
+          }}
+        >
+          New Entry
+        </h1>
         <EntryForm clients={clients as never} members={activeMembers} />
       </div>
     </PageMotion>

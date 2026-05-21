@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(mv /Users/gokustudio/Documents/Dinesh/Dev/chronicle/README.md /Users/gokustudio/Documents/Dinesh/Dev/chronicle/README.md.bak)",
-      "Bash(npx create-next-app@14 . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --yes)"
+      "Bash(npx create-next-app@14 . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --yes)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)"
     ]
   }
 }

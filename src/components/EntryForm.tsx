@@ -9,10 +9,11 @@ import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { createEntry, updateEntry } from "@/app/actions/entries";
+import { getClientColors } from "@/components/chronicle/ProjectPill";
 
-type Project = { id: string; name: string; billingType: BillingType; archivedAt: Date | null };
-type Client = { id: string; name: string; hasRetainership: boolean; projects: Project[]; createdAt: Date };
-type Member = { id: string; name: string; initials: string };
+type Project       = { id: string; name: string; billingType: BillingType; archivedAt: Date | null };
+type Client        = { id: string; name: string; hasRetainership: boolean; projects: Project[]; createdAt: Date };
+type Member        = { id: string; name: string; initials: string };
 type ExistingEntry = {
   id: string; date: Date; projectId: string | null;
   taskDescription: string; isMeeting: boolean;
@@ -21,51 +22,96 @@ type ExistingEntry = {
   taskHours: Array<{ teamMemberId: string; hours: number }>;
 };
 
-const CLIENT_PILL: Record<number, { bg: string; text: string }> = {
-  0: { bg: "#1E3A5F", text: "#93C5FD" },
-  1: { bg: "#2A2A28", text: "#D1D5DB" },
-  2: { bg: "#1F2D1A", text: "#86EFAC" },
-  3: { bg: "#2D1F0A", text: "#FCD34D" },
-  4: { bg: "#2D0A0A", text: "#FCA5A5" },
-};
+// ─── Primitives ───────────────────────────────────────────────────────────────
 
-function FloatingInput({
-  label, value, onChange, type = "text", required,
-  min, max, step, placeholder,
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p style={{
+      fontFamily:    "var(--font-martian-mono)",
+      fontSize:      10,
+      textTransform: "uppercase",
+      letterSpacing: "0.10em",
+      color:         "var(--text-muted)",
+      marginBottom:  8,
+    }}>
+      {children}
+    </p>
+  );
+}
+
+function FullInput({
+  label, value, onChange, type = "text",
+  required, min, max, step, placeholder, autoFocus,
 }: {
   label: string; value: string; onChange: (v: string) => void;
-  type?: string; required?: boolean; min?: string; max?: string; step?: string; placeholder?: string;
+  type?: string; required?: boolean; min?: string; max?: string;
+  step?: string; placeholder?: string; autoFocus?: boolean;
 }) {
   const [focused, setFocused] = useState(false);
-  const lifted = focused || !!value;
-
   return (
-    <div className="relative pb-1">
-      <motion.label
-        animate={{ y: lifted ? -18 : 0, scale: lifted ? 0.8 : 1 }}
-        transition={{ duration: 0.15, ease: "easeOut" }}
-        className="absolute left-0 top-3 origin-left pointer-events-none font-mono"
-        style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase",
-          color: focused ? "var(--text-primary)" : "var(--text-muted)" }}
-      >
-        {label}
-      </motion.label>
+    <div>
+      <FieldLabel>{label}</FieldLabel>
       <input
         type={type} value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        required={required} min={min} max={max} step={step} placeholder={placeholder}
-        className="w-full pt-6 pb-2 bg-transparent outline-none"
+        required={required} min={min} max={max} step={step}
+        placeholder={placeholder} autoFocus={autoFocus}
         style={{
-          borderBottom: `1px solid ${focused ? "var(--text-primary)" : "var(--border)"}`,
-          color: "var(--text-primary)", fontSize: 14,
-          transition: "border-color 200ms ease",
+          display:      "block",
+          width:        "100%",
+          height:       44,
+          background:   "var(--bg-ground)",
+          border:       `1.5px solid ${focused ? "var(--text-primary)" : "var(--border-subtle)"}`,
+          borderRadius: 8,
+          outline:      "none",
+          color:        "var(--text-primary)",
+          fontFamily:   "var(--font-instrument-sans)",
+          fontSize:     14,
+          padding:      "0 14px",
+          transition:   "border-color 150ms ease, box-shadow 150ms ease",
+          boxShadow:    focused ? "0 0 0 3px rgba(42,31,20,0.08)" : "none",
         }}
       />
     </div>
   );
 }
+
+// Segmented tab
+function SegTab({ id, label, active, onClick }: { id: string; label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button" onClick={onClick}
+      className="relative"
+      style={{
+        padding:      "0 16px",
+        height:       36,
+        fontSize:     14,
+        fontFamily:   "var(--font-instrument-sans)",
+        fontWeight:   active ? 500 : 400,
+        border:       "none",
+        background:   "transparent",
+        cursor:       "pointer",
+        color:        active ? "var(--text-primary)" : "var(--text-secondary)",
+        transition:   "color 150ms ease",
+        borderRadius: 6,
+      }}
+    >
+      {active && (
+        <motion.div
+          layoutId={id}
+          className="absolute inset-0"
+          style={{ background: "var(--bg-surface)", borderRadius: 6, boxShadow: "var(--shadow-sm)" }}
+          transition={{ ease: [0.25, 0.1, 0.25, 1], duration: 0.15 }}
+        />
+      )}
+      <span className="relative">{label}</span>
+    </button>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function EntryForm({
   clients, members, existing, onSuccess,
@@ -77,27 +123,25 @@ export default function EntryForm({
   const [isPending, startTransition] = useTransition();
   const today = format(new Date(), "yyyy-MM-dd");
 
-  const [date, setDate] = useState(existing ? format(new Date(existing.date), "yyyy-MM-dd") : today);
-  const [projectId, setProjectId] = useState<string | null>(existing?.projectId ?? null);
-  const [description, setDescription] = useState(existing?.taskDescription ?? "");
-  const [isMeeting, setIsMeeting] = useState(existing?.isMeeting ?? false);
-  const [personCount, setPersonCount] = useState(existing?.personCount?.toString() ?? "");
-  const [duration, setDuration] = useState(existing?.meetingDuration?.toString() ?? "");
+  const [date,            setDate]            = useState(existing ? format(new Date(existing.date), "yyyy-MM-dd") : today);
+  const [projectId,       setProjectId]       = useState<string | null>(existing?.projectId ?? null);
+  const [description,     setDescription]     = useState(existing?.taskDescription ?? "");
+  const [isMeeting,       setIsMeeting]       = useState(existing?.isMeeting ?? false);
+  const [personCount,     setPersonCount]     = useState(existing?.personCount?.toString() ?? "");
+  const [duration,        setDuration]        = useState(existing?.meetingDuration?.toString() ?? "");
   const [billingOverride, setBillingOverride] = useState<BillingType | null>(existing?.billingOverride ?? null);
-  const [memberHours, setMemberHours] = useState<Record<string, string>>(
-    () => Object.fromEntries((existing?.taskHours ?? []).map((th) => [th.teamMemberId, th.hours.toString()]))
+  const [memberHours,     setMemberHours]     = useState<Record<string, string>>(
+    () => Object.fromEntries((existing?.taskHours ?? []).map(th => [th.teamMemberId, th.hours.toString()]))
   );
   const [projectSearch, setProjectSearch] = useState("");
-  const [error, setError] = useState("");
-  const [savedEntries, setSavedEntries] = useState<Array<{ desc: string; project: string; hours: string }>>([]);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [error,         setError]         = useState("");
+  const [savedEntries,  setSavedEntries]  = useState<Array<{ desc: string; project: string; hours: string }>>([]);
+  const [saveSuccess,   setSaveSuccess]   = useState(false);
 
   const selectedProject = clients
-    .flatMap((c) => c.projects.map((p) => ({ ...p, client: c })))
-    .find((p) => p.id === projectId);
-
+    .flatMap(c => c.projects.map(p => ({ ...p, client: c })))
+    .find(p => p.id === projectId);
   const showBillingOverride = selectedProject?.client?.hasRetainership ?? false;
-
   function getEffectiveBilling(): BillingType {
     return billingOverride ?? selectedProject?.billingType ?? BillingType.INTERNAL;
   }
@@ -108,23 +152,22 @@ export default function EntryForm({
     if (!description.trim()) { setError("Task description required"); return; }
     if (isMeeting) {
       if (!personCount || parseInt(personCount) < 1) { setError("Person count ≥ 1"); return; }
-      if (!duration || parseFloat(duration) <= 0) { setError("Duration > 0"); return; }
+      if (!duration || parseFloat(duration) <= 0)    { setError("Duration > 0");     return; }
     } else {
-      const valid = Object.entries(memberHours).filter(([, h]) => h && parseFloat(h) > 0);
-      if (valid.length === 0) { setError("At least one member with hours > 0"); return; }
+      if (Object.entries(memberHours).filter(([, h]) => h && parseFloat(h) > 0).length === 0) {
+        setError("At least one member with hours > 0"); return;
+      }
     }
 
-    const taskHours = isMeeting
-      ? []
-      : Object.entries(memberHours)
-          .filter(([, h]) => h && parseFloat(h) > 0)
-          .map(([teamMemberId, h]) => ({ teamMemberId, hours: parseFloat(h) }));
+    const taskHours = isMeeting ? [] : Object.entries(memberHours)
+      .filter(([, h]) => h && parseFloat(h) > 0)
+      .map(([teamMemberId, h]) => ({ teamMemberId, hours: parseFloat(h) }));
 
     const payload = {
       date, projectId: projectId || null,
       taskDescription: description.trim(), isMeeting,
-      personCount: isMeeting ? parseInt(personCount) : undefined,
-      meetingDuration: isMeeting ? parseFloat(duration) : undefined,
+      personCount:     isMeeting ? parseInt(personCount) : undefined,
+      meetingDuration: isMeeting ? parseFloat(duration)  : undefined,
       billingOverride: showBillingOverride ? billingOverride : null,
       taskHours,
     };
@@ -137,280 +180,196 @@ export default function EntryForm({
       } else {
         await createEntry(payload);
         toast.success("Entry saved");
-
-        // Show success state briefly
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 800);
-
         if (andClose) {
           router.push("/timesheet");
         } else {
-          // Add to session summary
           const totalHrs = taskHours.reduce((s, th) => s + th.hours, 0);
-          setSavedEntries((prev) => [
-            ...prev,
-            {
-              desc: description.trim(),
-              project: selectedProject?.name ?? "Internal",
-              hours: isMeeting ? `${duration}h mtg` : `${totalHrs}h`,
-            },
-          ]);
-          // Reset form (keep date)
-          setProjectId(null);
-          setDescription("");
-          setIsMeeting(false);
-          setPersonCount("");
-          setDuration("");
-          setBillingOverride(null);
-          setMemberHours({});
+          setSavedEntries(prev => [...prev, {
+            desc:    description.trim(),
+            project: selectedProject?.name ?? "Internal",
+            hours:   isMeeting ? `${duration}h mtg` : `${totalHrs}h`,
+          }]);
+          setProjectId(null); setDescription(""); setIsMeeting(false);
+          setPersonCount(""); setDuration(""); setBillingOverride(null); setMemberHours({});
         }
       }
     });
   }
 
-  const allProjects = clients.flatMap((c, idx) =>
-    c.projects.filter((p) => !p.archivedAt).map((p) => ({ ...p, client: c, clientIndex: idx }))
-  );
+  const allProjects = clients.flatMap(c => c.projects.filter(p => !p.archivedAt).map(p => ({ ...p, client: c })));
   const filteredProjects = projectSearch
-    ? allProjects.filter((p) =>
-        p.name.toLowerCase().includes(projectSearch.toLowerCase()) ||
-        p.client.name.toLowerCase().includes(projectSearch.toLowerCase())
-      )
+    ? allProjects.filter(p => p.name.toLowerCase().includes(projectSearch.toLowerCase()) || p.client.name.toLowerCase().includes(projectSearch.toLowerCase()))
     : allProjects;
   const groupedProjects = filteredProjects.reduce((acc, p) => {
-    if (!acc[p.client.id]) acc[p.client.id] = { client: p.client, projects: [], index: p.clientIndex };
+    if (!acc[p.client.id]) acc[p.client.id] = { client: p.client, projects: [] };
     acc[p.client.id].projects.push(p);
     return acc;
-  }, {} as Record<string, { client: Client; projects: typeof allProjects; index: number }>);
-
-  const inputStyle = {
-    background: "var(--card-bg)",
-    border: "1px solid var(--border)",
-    color: "var(--text-primary)",
-    fontSize: 13,
-    padding: "7px 10px",
-    borderRadius: 4,
-    outline: "none",
-    width: "100%",
-  };
+  }, {} as Record<string, { client: Client; projects: typeof allProjects }>);
 
   return (
-    <div className="space-y-7">
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+
       {/* Date */}
       <div>
-        <p className="font-mono mb-2" style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)" }}>
-          Date
-        </p>
+        <FieldLabel>Date</FieldLabel>
         <input
-          type="date" value={date} onChange={(e) => setDate(e.target.value)}
-          style={{ ...inputStyle, width: "auto", fontFamily: "var(--font-geist-mono)", fontSize: 13 }}
-          required
+          type="date" value={date} onChange={e => setDate(e.target.value)} required
+          style={{
+            background: "var(--bg-ground)", border: "1.5px solid var(--border-subtle)",
+            borderRadius: 8, padding: "0 14px", height: 44,
+            fontFamily: "var(--font-instrument-sans)", fontSize: 14, color: "var(--text-primary)",
+            outline: "none",
+          }}
         />
       </div>
 
       {/* Project */}
       <div>
-        <p className="font-mono mb-2" style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)" }}>
-          Project
-        </p>
+        <FieldLabel>Project</FieldLabel>
         <input
-          type="text" value={projectSearch} onChange={(e) => setProjectSearch(e.target.value)}
-          style={{ ...inputStyle, marginBottom: 10 }}
-          placeholder="Search projects…"
+          type="text" value={projectSearch} onChange={e => setProjectSearch(e.target.value)}
+          placeholder="Search…"
+          style={{
+            display: "block", width: "100%", height: 40, marginBottom: 12,
+            background: "var(--bg-ground)", border: "1.5px solid var(--border-subtle)",
+            borderRadius: 8, padding: "0 14px",
+            fontFamily: "var(--font-instrument-sans)", fontSize: 13, color: "var(--text-primary)",
+            outline: "none",
+          }}
         />
-        <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto">
-          <motion.button
-            type="button"
-            onClick={() => setProjectId(null)}
-            whileHover={{ y: -1 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 20 }}
-            style={{
-              padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 500,
-              background: projectId === null ? "var(--action-primary)" : "var(--accent-bg)",
-              color: projectId === null ? "var(--action-primary-text)" : "var(--text-muted)",
-              border: "none", cursor: "pointer",
-            }}
-          >
-            Internal
-          </motion.button>
-
-          {Object.values(groupedProjects).map(({ client, projects, index }) => (
-            <div key={client.id} className="w-full">
-              <p className="font-mono mb-1.5" style={{ fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)", opacity: 0.7 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 176, overflowY: "auto" }}>
+          <PillButton label="Internal" clientName="Goku Studio" selected={projectId === null}
+            onClick={() => { setProjectId(null); setBillingOverride(null); }} />
+          {Object.values(groupedProjects).map(({ client, projects }) => (
+            <div key={client.id}>
+              <p style={{ fontFamily: "var(--font-martian-mono)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: 6, opacity: 0.65 }}>
                 {client.name}
               </p>
-              <div className="flex flex-wrap gap-1.5">
-                {projects.map((p) => {
-                  const pill = CLIENT_PILL[index] ?? { bg: "#222220", text: "#9C9A96" };
-                  const isSelected = projectId === p.id;
-                  return (
-                    <motion.button
-                      key={p.id} type="button"
-                      onClick={() => { setProjectId(p.id); setBillingOverride(null); }}
-                      whileHover={{ y: -1 }}
-                      whileTap={{ scale: 0.93 }}
-                      transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                      style={{
-                        padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 500, cursor: "pointer",
-                        background: isSelected ? pill.bg : "var(--accent-bg)",
-                        color: isSelected ? pill.text : "var(--text-muted)",
-                        border: `1px solid ${isSelected ? pill.bg : "transparent"}`,
-                        outline: "none",
-                      }}
-                    >
-                      {p.name}
-                    </motion.button>
-                  );
-                })}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {projects.map(p => (
+                  <PillButton key={p.id} label={p.name} clientName={client.name} selected={projectId === p.id}
+                    onClick={() => { setProjectId(p.id); setBillingOverride(null); }} />
+                ))}
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Task Description */}
-      <FloatingInput
-        label="Task Description"
-        value={description}
-        onChange={setDescription}
-        required
-      />
+      {/* Task description */}
+      <FullInput label="Task Description" value={description} onChange={setDescription} required />
 
-      {/* Entry Type */}
+      {/* Entry type */}
       <div>
-        <p className="font-mono mb-2" style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)" }}>
-          Entry Type
-        </p>
-        <div
-          className="inline-flex"
-          style={{ border: "1px solid var(--border)", borderRadius: 4, overflow: "hidden", background: "var(--card-bg)" }}
-        >
-          {(["Task", "Meeting"] as const).map((t) => {
-            const active = (t === "Meeting") === isMeeting;
-            return (
-              <button
-                key={t} type="button"
-                onClick={() => setIsMeeting(t === "Meeting")}
-                className="relative px-5 py-2"
-                style={{ fontSize: 13, fontWeight: 500 }}
-              >
-                {active && (
-                  <motion.div
-                    layoutId="entry-type-bg"
-                    className="absolute inset-0"
-                    style={{ background: "var(--action-primary)" }}
-                    transition={{ type: "spring", stiffness: 400, damping: 35 }}
-                  />
-                )}
-                <span className="relative" style={{ color: active ? "var(--action-primary-text)" : "var(--text-secondary)" }}>
-                  {t}
-                </span>
-              </button>
-            );
-          })}
+        <FieldLabel>Entry Type</FieldLabel>
+        <div style={{ display: "inline-flex", border: "1.5px solid var(--border-medium)", borderRadius: 8, background: "var(--bg-ground)", padding: 3, gap: 1 }}>
+          <SegTab id="entry-type" label="Task"    active={!isMeeting} onClick={() => setIsMeeting(false)} />
+          <SegTab id="entry-type" label="Meeting" active={isMeeting}  onClick={() => setIsMeeting(true)}  />
         </div>
       </div>
 
-      {/* Task: member hours */}
-      {!isMeeting && (
-        <div>
-          <p className="font-mono mb-3" style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)" }}>
-            Hours
-          </p>
-          <div className="space-y-3">
-            {members.map((m) => {
-              const hasHours = !!memberHours[m.id] && parseFloat(memberHours[m.id]) > 0;
-              return (
-                <div key={m.id} className="flex items-center gap-3">
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center font-mono flex-shrink-0 text-xs font-bold"
+      {/* Hours / Meeting */}
+      <AnimatePresence mode="wait">
+        {!isMeeting ? (
+          <motion.div key="task" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+            <FieldLabel>Hours</FieldLabel>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {members.map(m => {
+                const hasHours = !!memberHours[m.id] && parseFloat(memberHours[m.id]) > 0;
+                return (
+                  <div key={m.id}
                     style={{
-                      background: hasHours ? "var(--action-primary)" : "var(--accent-bg)",
-                      color: hasHours ? "var(--action-primary-text)" : "var(--text-muted)",
-                      transition: "background 200ms, color 200ms",
+                      display:      "flex",
+                      alignItems:   "center",
+                      gap:          12,
+                      background:   "var(--bg-ground)",
+                      border:       "1px solid var(--border-ghost)",
+                      borderRadius: 8,
+                      padding:      "12px 14px",
                     }}
                   >
-                    {m.initials}
+                    <div style={{
+                      width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontFamily: "var(--font-martian-mono)", fontSize: 11, fontWeight: 600,
+                      background: hasHours ? "var(--bg-ink)"  : "var(--bg-active)",
+                      color:      hasHours ? "var(--text-on-dark)" : "var(--text-secondary)",
+                      transition: "background 200ms, color 200ms",
+                    }}>
+                      {m.initials}
+                    </div>
+                    <span style={{ fontFamily: "var(--font-instrument-sans)", fontSize: 14, color: "var(--text-primary)", flex: 1 }}>
+                      {m.name}
+                    </span>
+                    <input
+                      type="number" min="0" max="24" step="0.5"
+                      value={memberHours[m.id] ?? ""} placeholder=""
+                      onChange={e => setMemberHours({ ...memberHours, [m.id]: e.target.value })}
+                      style={{
+                        width: 64, background: "var(--bg-surface)",
+                        border: "1px solid var(--border-subtle)", borderRadius: 6,
+                        outline: "none", fontFamily: "var(--font-martian-mono)",
+                        fontSize: 14, fontWeight: 500, color: "var(--text-primary)",
+                        textAlign: "right", padding: "0 10px", height: 36,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    />
                   </div>
-                  <span style={{ fontSize: 13, color: "var(--text-primary)", flex: 1 }}>{m.name}</span>
-                  <input
-                    type="number" min="0" max="24" step="0.5"
-                    value={memberHours[m.id] ?? ""}
-                    onChange={(e) => setMemberHours({ ...memberHours, [m.id]: e.target.value })}
-                    className="font-mono text-right"
-                    style={{
-                      width: 60, borderBottom: "1px solid var(--border)", background: "transparent",
-                      outline: "none", fontSize: 14, fontWeight: 500, color: "var(--text-primary)",
-                      padding: "4px 0",
-                    }}
-                    placeholder="0"
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Meeting fields */}
-      {isMeeting && (
-        <div className="grid grid-cols-2 gap-5">
-          <FloatingInput label="Person Count" value={personCount} onChange={setPersonCount} type="number" min="1" />
-          <FloatingInput label="Duration (hrs)" value={duration} onChange={setDuration} type="number" min="0.5" step="0.5" />
-        </div>
-      )}
+                );
+              })}
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div key="meeting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
+          >
+            <FullInput label="Attendees"   value={personCount} onChange={setPersonCount} type="number" min="1" />
+            <FullInput label="Duration (h)" value={duration}   onChange={setDuration}    type="number" min="0.5" step="0.5" />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Billing override */}
       {showBillingOverride && (
         <div>
-          <p className="font-mono mb-2" style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)" }}>
-            Billing
-          </p>
-          <div className="inline-flex" style={{ border: "1px solid var(--border)", borderRadius: 4, overflow: "hidden" }}>
-            {([BillingType.RETAINERSHIP, BillingType.OUT_OF_RETAINERSHIP] as const).map((b) => {
-              const active = getEffectiveBilling() === b;
-              return (
-                <button key={b} type="button" onClick={() => setBillingOverride(b)}
-                  className="relative px-4 py-2"
-                  style={{ fontSize: 12, fontWeight: 500 }}
-                >
-                  {active && (
-                    <motion.div layoutId="billing-bg" className="absolute inset-0"
-                      style={{ background: "var(--action-primary)" }}
-                      transition={{ type: "spring", stiffness: 400, damping: 35 }} />
-                  )}
-                  <span className="relative" style={{ color: active ? "var(--action-primary-text)" : "var(--text-secondary)" }}>
-                    {b === BillingType.RETAINERSHIP ? "Retainership" : "Out of Retainership"}
-                  </span>
-                </button>
-              );
-            })}
+          <FieldLabel>Billing</FieldLabel>
+          <div style={{ display: "inline-flex", border: "1.5px solid var(--border-medium)", borderRadius: 8, background: "var(--bg-ground)", padding: 3, gap: 1 }}>
+            {([BillingType.RETAINERSHIP, BillingType.OUT_OF_RETAINERSHIP] as const).map(b => (
+              <SegTab key={b} id="billing-type"
+                label={b === BillingType.RETAINERSHIP ? "Retainership" : "Out of Retainer"}
+                active={getEffectiveBilling() === b}
+                onClick={() => setBillingOverride(b)}
+              />
+            ))}
           </div>
         </div>
       )}
 
-      {/* Session summary (non-edit mode) */}
+      {/* Session summary */}
       {!existing && savedEntries.length > 0 && (
-        <div>
-          <p className="font-mono mb-2" style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)" }}>
+        <div style={{ borderTop: "1px solid var(--border-ghost)", paddingTop: 16 }}>
+          <p style={{ fontFamily: "var(--font-martian-mono)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.10em", color: "var(--text-muted)", marginBottom: 10 }}>
             Saved this session
           </p>
-          <div className="space-y-1.5">
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <AnimatePresence>
               {savedEntries.map((e, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, x: 20 }}
+                <motion.div key={i}
+                  initial={{ opacity: 0, x: 12 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                  className="flex items-center gap-2 py-1.5"
-                  style={{ borderBottom: "1px solid var(--border)" }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25, delay: i * 0.02 }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    background: "var(--bg-ground)", border: "1px solid var(--border-ghost)",
+                    borderRadius: 8, padding: "10px 14px",
+                  }}
                 >
-                  <Check size={12} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, color: "var(--text-secondary)", flex: 1 }}>{e.desc}</span>
-                  <span className="font-mono" style={{ fontSize: 11, color: "var(--text-muted)" }}>{e.project}</span>
-                  <span className="font-mono" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{e.hours}</span>
+                  <Check size={11} style={{ color: "var(--color-success)", flexShrink: 0 }} />
+                  <span style={{ fontFamily: "var(--font-instrument-sans)", fontSize: 13, color: "var(--text-secondary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.desc}</span>
+                  <span style={{ fontFamily: "var(--font-martian-mono)", fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>{e.project}</span>
+                  <span style={{ fontFamily: "var(--font-martian-mono)", fontSize: 12, fontWeight: 600, color: "var(--text-primary)", flexShrink: 0 }}>{e.hours}</span>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -418,62 +377,97 @@ export default function EntryForm({
         </div>
       )}
 
-      {error && (
-        <motion.p
-          initial={{ opacity: 0, x: -4 }}
-          animate={{ opacity: 1, x: 0 }}
-          style={{ fontSize: 12, color: "var(--destructive)" }}
-        >
-          {error}
-        </motion.p>
-      )}
+      {/* Error */}
+      <AnimatePresence>
+        {error && (
+          <motion.p initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
+            style={{ fontFamily: "var(--font-martian-mono)", fontSize: 11, color: "var(--color-destructive)", letterSpacing: "0.02em" }}>
+            {error}
+          </motion.p>
+        )}
+      </AnimatePresence>
 
       {/* CTAs */}
-      <div className="flex gap-2 pt-2">
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 4 }}>
         {!existing && (
           <motion.button
             type="button" onClick={() => save(false)} disabled={isPending}
-            className="relative flex-1 overflow-hidden py-2.5 font-medium"
-            style={{ background: "var(--action-primary)", color: "var(--action-primary-text)", borderRadius: 4, fontSize: 13 }}
             whileTap={{ scale: 0.97 }}
-            whileHover={{ opacity: 0.88 }}
+            style={{
+              width: "100%", height: 48,
+              background: "var(--bg-ink)", color: "var(--text-on-dark)",
+              border: "none", borderRadius: 8,
+              fontFamily: "var(--font-instrument-sans)", fontSize: 15, fontWeight: 500,
+              cursor: isPending ? "not-allowed" : "pointer",
+              opacity: isPending ? 0.65 : 1,
+              position: "relative", overflow: "hidden",
+              boxShadow: "var(--shadow-sm)",
+            }}
           >
             <AnimatePresence mode="wait">
-              {saveSuccess ? (
-                <motion.span key="check" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  ✓
-                </motion.span>
-              ) : (
-                <motion.span key="label" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  {isPending ? "Saving…" : "Save & Add Another"}
-                </motion.span>
-              )}
+              {saveSuccess
+                ? <motion.span key="check" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>✓ Saved</motion.span>
+                : <motion.span key="label" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>{isPending ? "Saving…" : "Save & Add Another"}</motion.span>
+              }
             </AnimatePresence>
           </motion.button>
         )}
-        <motion.button
-          type="button" onClick={() => save(true)} disabled={isPending}
-          className={cn("py-2.5 font-medium", existing ? "flex-1" : "")}
-          style={{
-            border: "1px solid var(--border)", background: existing ? "var(--action-primary)" : "transparent",
-            color: existing ? "var(--action-primary-text)" : "var(--text-primary)",
-            borderRadius: 4, fontSize: 13, padding: existing ? undefined : "10px 16px",
-          }}
-          whileTap={{ scale: 0.97 }}
-          whileHover={{ background: existing ? undefined : "var(--accent-bg)" }}
-        >
-          {isPending ? "Saving…" : existing ? "Save Changes" : "Save & Close"}
-        </motion.button>
-        <motion.button
-          type="button"
-          onClick={() => { if (onSuccess) onSuccess(); else router.push("/timesheet"); }}
-          style={{ fontSize: 13, color: "var(--text-muted)", padding: "10px 12px" }}
-          whileHover={{ color: "var(--text-primary)" }}
-          whileTap={{ scale: 0.97 }}
-        >
-          Cancel
-        </motion.button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <motion.button
+            type="button" onClick={() => save(true)} disabled={isPending}
+            whileTap={{ scale: 0.97 }}
+            className={cn(existing ? "flex-1" : "")}
+            style={{
+              height:       44,
+              width:        existing ? undefined : 200,
+              background:   existing ? "var(--bg-ink)"  : "transparent",
+              color:        existing ? "var(--text-on-dark)" : "var(--text-primary)",
+              border:       existing ? "none" : "1.5px solid var(--border-medium)",
+              borderRadius: 8,
+              fontFamily:   "var(--font-instrument-sans)",
+              fontSize:     14, fontWeight: 500,
+              cursor:       isPending ? "not-allowed" : "pointer",
+              opacity:      isPending ? 0.65 : 1,
+              padding:      "0 18px",
+              boxShadow:    existing ? "var(--shadow-sm)" : "none",
+            }}
+          >
+            {isPending ? "Saving…" : existing ? "Save Changes" : "Save & Close"}
+          </motion.button>
+          <motion.button
+            type="button"
+            onClick={() => { if (onSuccess) onSuccess(); else router.push("/timesheet"); }}
+            whileHover={{ color: "var(--text-primary)" }}
+            style={{ fontFamily: "var(--font-instrument-sans)", fontSize: 14, color: "var(--text-muted)", background: "transparent", border: "none", cursor: "pointer", padding: "0 12px" }}
+          >
+            Cancel
+          </motion.button>
+        </div>
       </div>
     </div>
+  );
+}
+
+function PillButton({ label, clientName, selected, onClick }: { label: string; clientName: string; selected: boolean; onClick: () => void }) {
+  const colors = getClientColors(clientName);
+  return (
+    <motion.button
+      type="button" onClick={onClick}
+      whileHover={{ y: -1, boxShadow: "var(--shadow-sm)" }}
+      transition={{ duration: 0.12, ease: [0.25, 0.1, 0.25, 1] }}
+      style={{
+        display: "inline-flex", alignItems: "center",
+        height: 24, padding: "0 10px", borderRadius: 6,
+        fontFamily: "var(--font-martian-mono)", fontSize: 11, fontWeight: 500,
+        cursor: "pointer",
+        border:      `1.5px solid ${colors.border}`,
+        background:  selected ? colors.bg     : "transparent",
+        color:       selected ? colors.text   : colors.text,
+        opacity:     selected ? 1             : 0.55,
+        transition:  "opacity 150ms ease, background 150ms ease",
+      }}
+    >
+      {label}
+    </motion.button>
   );
 }
