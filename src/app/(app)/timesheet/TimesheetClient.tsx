@@ -279,7 +279,8 @@ export default function TimesheetClient({
 
                       {/* ── Day total row ───────────────────────────── */}
                       <tr style={{ borderTop: "2px solid var(--border-subtle)", background: "var(--bg-ground)" }}>
-                        {/* date+day cols are occupied by rowSpan from first entry */}
+                        <td style={{ height: 36 }} />
+                        <td style={{ height: 36 }} />
                         <td
                           colSpan={2}
                           style={{
@@ -354,7 +355,7 @@ export default function TimesheetClient({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center"
-            style={{ background: "oklch(14% 0.008 60 / 0.55)" }}
+            style={{ background: "rgba(42, 31, 20, 0.15)" }}
             onClick={() => setDeleteTarget(null)}
           >
             <motion.div
@@ -439,38 +440,34 @@ function TableRow({
         boxShadow:    hovered ? "inset 3px 0 0 var(--border-strong)" : "none",
       }}
     >
-      {/* Date + Day — rowSpan covers all entries in group + the total row */}
-      {entryIdx === 0 && (
-        <>
-          <td
-            rowSpan={groupSize + 1}
-            scope="row"
-            style={{
-              padding:      "16px 16px 0",
-              verticalAlign:"top",
-              fontFamily:   "var(--font-instrument-sans)",
-              fontSize:     15,
-              fontWeight:   600,
-              color:        "var(--text-primary)",
-              whiteSpace:   "nowrap",
-            }}
-          >
-            {dateDisplay}
-          </td>
-          <td
-            rowSpan={groupSize + 1}
-            style={{
-              padding:      "18px 16px 0",
-              verticalAlign:"top",
-              fontFamily:   "var(--font-martian-mono)",
-              fontSize:     12,
-              color:        "var(--text-muted)",
-            }}
-          >
-            {dayDisplay}
-          </td>
-        </>
-      )}
+      {/* Date + Day — visible only for the first entry in each date group */}
+      <td
+        scope="row"
+        style={{
+          padding:      "16px 16px 0",
+          verticalAlign:"top",
+          fontFamily:   "var(--font-instrument-sans)",
+          fontSize:     15,
+          fontWeight:   600,
+          color:        "var(--text-primary)",
+          whiteSpace:   "nowrap",
+          visibility:   entryIdx === 0 ? "visible" : "hidden",
+        }}
+      >
+        {dateDisplay}
+      </td>
+      <td
+        style={{
+          padding:      "18px 16px 0",
+          verticalAlign:"top",
+          fontFamily:   "var(--font-martian-mono)",
+          fontSize:     12,
+          color:        "var(--text-muted)",
+          visibility:   entryIdx === 0 ? "visible" : "hidden",
+        }}
+      >
+        {dayDisplay}
+      </td>
 
       {/* Project pill */}
       <td style={{ padding: "0 16px", height: 56 }}>

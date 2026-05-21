@@ -1,9 +1,9 @@
 "use client";
 
 import { X } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import EntryForm from "@/components/EntryForm";
 import { BillingType } from "@prisma/client";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 type Member = { id: string; name: string; initials: string; isActive: boolean };
 type Project = {
@@ -45,121 +45,95 @@ export default function EditEntryModal({
   onSaved: () => void;
 }) {
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
+    <Sheet open={true} onOpenChange={(open: boolean) => { if (!open) onClose(); }}>
+      <SheetContent
+        side="right"
+        showCloseButton={false}
+        className="p-0 gap-0"
         style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.5)",
-          zIndex: 50,
+          width: 480,
+          maxWidth: 480,
+          backgroundColor: "var(--bg-overlay)",
+          background: "var(--bg-overlay)",
+          borderLeft: "1px solid var(--border)",
+          boxShadow: "-8px 0 40px rgba(42, 31, 20, 0.10)",
           display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "center",
-          paddingTop: 64,
-          paddingLeft: 16,
-          paddingRight: 16,
+          flexDirection: "column",
+          zIndex: 50,
         }}
       >
-        <motion.div
-          initial={{ scale: 0.97, opacity: 0, y: 12 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.97, opacity: 0, y: 8 }}
-          transition={{ type: "spring", stiffness: 420, damping: 32 }}
-          onClick={(e) => e.stopPropagation()}
+        {/* Header */}
+        <div
           style={{
-            background: "var(--card-bg)",
-            border: "1px solid var(--border)",
-            borderRadius: 16,
-            width: "100%",
-            maxWidth: 680,
-            maxHeight: "80vh",
-            overflowY: "auto",
-            boxShadow: "0 24px 80px rgba(0,0,0,0.25)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "20px 24px",
+            borderBottom: "1px solid var(--border)",
+            flexShrink: 0,
           }}
         >
-          {/* Header */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "20px 24px",
-              borderBottom: "1px solid var(--border)",
-              position: "sticky",
-              top: 0,
-              background: "var(--card-bg)",
-              zIndex: 1,
-            }}
-          >
-            <div>
-              <p
-                style={{
-                  fontFamily: "var(--font-geist-mono, monospace)",
-                  fontSize: 10,
-                  fontWeight: 500,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  color: "var(--text-muted)",
-                  marginBottom: 2,
-                }}
-              >
-                Chronicle
-              </p>
-              <h2
-                style={{
-                  fontSize: 16,
-                  fontWeight: 700,
-                  color: "var(--text-primary)",
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                Edit Entry
-              </h2>
-            </div>
-            <motion.button
-              onClick={onClose}
-              whileHover={{ scale: 1.1, rotate: 90 }}
-              whileTap={{ scale: 0.9 }}
-              transition={{ duration: 0.15 }}
+          <div>
+            <p
               style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
+                fontFamily: "var(--font-geist-mono, monospace)",
+                fontSize: 10,
+                fontWeight: 500,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
                 color: "var(--text-muted)",
-                cursor: "pointer",
+                marginBottom: 2,
               }}
             >
-              <X size={15} />
-            </motion.button>
-          </div>
-
-          {/* Form */}
-          <div style={{ padding: "24px" }}>
-            <EntryForm
-              clients={clients as never}
-              members={members}
-              existing={{
-                ...entry,
-                date: new Date(entry.date),
-                taskHours: entry.taskHours.map((th) => ({
-                  teamMemberId: th.teamMemberId,
-                  hours: th.hours,
-                })),
+              Chronicle
+            </p>
+            <h2
+              style={{
+                fontSize: 16,
+                fontWeight: 700,
+                color: "var(--text-primary)",
+                letterSpacing: "-0.01em",
               }}
-              onSuccess={onSaved}
-            />
+            >
+              Edit Entry
+            </h2>
           </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+          <button
+            onClick={onClose}
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              color: "var(--text-muted)",
+              cursor: "pointer",
+            }}
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Form */}
+        <div style={{ padding: "24px", overflowY: "auto", flex: 1 }}>
+          <EntryForm
+            clients={clients as never}
+            members={members}
+            existing={{
+              ...entry,
+              date: new Date(entry.date),
+              taskHours: entry.taskHours.map((th) => ({
+                teamMemberId: th.teamMemberId,
+                hours: th.hours,
+              })),
+            }}
+            onSuccess={onSaved}
+          />
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

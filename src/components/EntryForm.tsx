@@ -308,8 +308,8 @@ export default function EntryForm({
                       value={memberHours[m.id] ?? ""} placeholder=""
                       onChange={e => setMemberHours({ ...memberHours, [m.id]: e.target.value })}
                       style={{
-                        width: 64, background: "var(--bg-surface)",
-                        border: "1px solid var(--border-subtle)", borderRadius: 6,
+                        width: 64, background: "var(--bg-ground)",
+                        border: "1.5px solid var(--border-subtle)", borderRadius: 8,
                         outline: "none", fontFamily: "var(--font-martian-mono)",
                         fontSize: 14, fontWeight: 500, color: "var(--text-primary)",
                         textAlign: "right", padding: "0 10px", height: 36,
@@ -460,10 +460,10 @@ function PillButton({ label, clientName, selected, onClick }: { label: string; c
         height: 24, padding: "0 10px", borderRadius: 6,
         fontFamily: "var(--font-martian-mono)", fontSize: 11, fontWeight: 500,
         cursor: "pointer",
-        border:      `1.5px solid ${colors.border}`,
-        background:  selected ? colors.bg     : "transparent",
-        color:       selected ? colors.text   : colors.text,
-        opacity:     selected ? 1             : 0.55,
+        border:      `1.5px solid ${selected ? colors.border : "transparent"}`,
+        background:  colors.bg,
+        color:       colors.text,
+        opacity:     selected ? 1 : 0.6,
         transition:  "opacity 150ms ease, background 150ms ease",
       }}
     >

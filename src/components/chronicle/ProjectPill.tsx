@@ -61,10 +61,10 @@ export function ProjectPill({
         fontWeight:   500,
         whiteSpace:   "nowrap",
         cursor:       isInteractive ? "pointer" : "default",
-        border:       `1.5px solid ${(selected !== undefined && !selected) ? colors.border : colors.border}`,
-        background:   (selected !== undefined && !selected) ? "transparent" : colors.bg,
+        border:       `1.5px solid ${(selected !== undefined && !selected) ? "transparent" : colors.border}`,
+        background:   colors.bg,
         color:        colors.text,
-        opacity:      dimmed ? 0.50 : 1,
+        opacity:      dimmed ? 0.50 : (selected !== undefined && !selected) ? 0.6 : 1,
         transition:   "opacity 150ms ease, transform 120ms ease-out",
       }}
     >
