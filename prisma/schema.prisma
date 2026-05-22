@@ -8,9 +8,23 @@ datasource db {
 }
 
 model User {
+  id                String    @id @default(cuid())
+  username          String    @unique
+  password          String
+  hoursTarget       Float     @default(8)
+  overtimeThreshold Float     @default(8)
+  reminderEnabled   Boolean   @default(false)
+  reminderTime      String    @default("18:00")
+  createdAt         DateTime  @default(now())
+  holidays          Holiday[]
+}
+
+model Holiday {
   id        String   @id @default(cuid())
-  username  String   @unique
-  password  String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  date      DateTime @db.Date
+  label     String?
   createdAt DateTime @default(now())
 }
 
@@ -42,13 +56,14 @@ enum BillingType {
 }
 
 model TeamMember {
-  id             String     @id @default(cuid())
-  name           String
-  initials       String
-  whatsappNumber String?    @unique
-  isActive       Boolean    @default(true)
-  taskHours      TaskHour[]
-  createdAt      DateTime   @default(now())
+  id               String     @id @default(cuid())
+  name             String
+  initials         String
+  whatsappNumber   String?    @unique
+  isActive         Boolean    @default(true)
+  reminderEnabled  Boolean    @default(true)
+  taskHours        TaskHour[]
+  createdAt        DateTime   @default(now())
 }
 
 model TaskEntry {

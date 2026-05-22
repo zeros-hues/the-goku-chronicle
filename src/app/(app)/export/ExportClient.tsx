@@ -76,6 +76,7 @@ export default function ExportClient({
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [exportingJson, setExportingJson] = useState(false);
 
   const loadEntries = useCallback(async () => {
     setLoading(true);
@@ -104,6 +105,29 @@ export default function ExportClient({
   );
   const sortedDates = Object.keys(grouped).sort();
   const grandTotal = entries.reduce((s, e) => s + entryHours(e), 0);
+
+  async function handleExportJson() {
+    setExportingJson(true);
+    try {
+      const response = await fetch("/api/export-json", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ startDate, endDate, clientId: clientFilter || null, billingType: billingFilter || null }),
+      });
+      if (!response.ok) throw new Error("Export failed");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `chronicle_${startDate}_${endDate}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("JSON export failed. Please try again.");
+    } finally {
+      setExportingJson(false);
+    }
+  }
 
   async function handleExport() {
     setExporting(true);
@@ -221,31 +245,58 @@ export default function ExportClient({
               </div>
             </div>
 
-            <motion.button
-              onClick={handleExport}
-              disabled={exporting || loading || entries.length === 0}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "10px 24px",
-                background: "var(--action-primary)",
-                color: "var(--action-primary-text)",
-                border: "none",
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: exporting || loading || entries.length === 0 ? "not-allowed" : "pointer",
-                opacity: exporting || loading || entries.length === 0 ? 0.5 : 1,
-                fontFamily: "var(--font-geist-sans, sans-serif)",
-                whiteSpace: "nowrap",
-              }}
-            >
-              <Download size={14} />
-              {exporting ? "Generating..." : `Download Excel${entries.length > 0 ? ` (${grandTotal}h)` : ""}`}
-            </motion.button>
+            <div className="flex gap-2">
+              <motion.button
+                onClick={handleExport}
+                disabled={exporting || loading || entries.length === 0}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 24px",
+                  background: "var(--action-primary)",
+                  color: "var(--action-primary-text)",
+                  border: "none",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: exporting || loading || entries.length === 0 ? "not-allowed" : "pointer",
+                  opacity: exporting || loading || entries.length === 0 ? 0.5 : 1,
+                  fontFamily: "var(--font-geist-sans, sans-serif)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Download size={14} />
+                {exporting ? "Generating..." : `Download Excel${entries.length > 0 ? ` (${grandTotal}h)` : ""}`}
+              </motion.button>
+              <motion.button
+                onClick={handleExportJson}
+                disabled={exportingJson || loading || entries.length === 0}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 20px",
+                  background: "var(--bg-ground)",
+                  color: "var(--text-primary)",
+                  border: "1.5px solid var(--border-medium)",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: exportingJson || loading || entries.length === 0 ? "not-allowed" : "pointer",
+                  opacity: exportingJson || loading || entries.length === 0 ? 0.5 : 1,
+                  fontFamily: "var(--font-geist-sans, sans-serif)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Download size={14} />
+                {exportingJson ? "Generating..." : "Download JSON"}
+              </motion.button>
+            </div>
           </div>
         </motion.div>
       </section>

@@ -3,6 +3,7 @@ import PageMotion from "@/components/PageMotion";
 import ProjectsClient from "./ProjectsClient";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Projects" };
 
 export default async function ProjectsPage() {
   const clients = await getClientsWithProjects();

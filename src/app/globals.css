@@ -345,3 +345,31 @@ input[type="number"] {
     margin-bottom: 16pt;
   }
 }
+
+/* ============ NPROGRESS — brand ink color ============ */
+#nprogress { pointer-events: none; }
+#nprogress .bar {
+  background: var(--bg-ink);
+  position: fixed;
+  z-index: 9999;
+  top: 0; left: 0;
+  width: 100%; height: 2px;
+}
+#nprogress .peg {
+  display: block;
+  position: absolute;
+  right: 0; width: 100px; height: 100%;
+  box-shadow: 0 0 10px var(--bg-ink), 0 0 5px var(--bg-ink);
+  opacity: 1;
+  transform: rotate(3deg) translate(0px, -4px);
+}
+#nprogress .spinner { display: none !important; }
+
+/* ============ ROW HIGHLIGHT ANIMATION ============ */
+@keyframes row-flash {
+  0%   { box-shadow: inset 0 0 0 100vw rgba(245, 158, 11, 0.18); }
+  100% { box-shadow: inset 0 0 0 100vw rgba(245, 158, 11, 0); }
+}
+tr[data-highlight="true"] {
+  animation: row-flash 1.4s ease-out forwards;
+}

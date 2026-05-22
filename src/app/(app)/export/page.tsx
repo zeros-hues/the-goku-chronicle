@@ -4,6 +4,7 @@ import PageMotion from "@/components/PageMotion";
 import ExportClient from "./ExportClient";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Export" };
 
 export default async function ExportPage() {
   const [clients, members] = await Promise.all([

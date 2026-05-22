@@ -3,6 +3,7 @@ import PageMotion from "@/components/PageMotion";
 import TeamClient from "./TeamClient";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Team" };
 
 export default async function TeamPage() {
   const members = await getTeamMembers();

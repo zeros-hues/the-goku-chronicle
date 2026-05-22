@@ -30,8 +30,9 @@ const martianMono = Martian_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Chronicle — Goku Studio",
+  title: { default: "Chronicle", template: "%s — Chronicle" },
   description: "Internal timesheet management for Goku Studio",
+  icons: [{ rel: "icon", url: "/favicon.svg", type: "image/svg+xml" }],
 };
 
 export default function RootLayout({

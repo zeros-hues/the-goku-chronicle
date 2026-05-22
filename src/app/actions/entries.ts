@@ -138,6 +138,23 @@ export async function getEntries(filters?: {
   });
 }
 
+export async function bulkSoftDelete(ids: string[]) {
+  await prisma.taskEntry.updateMany({
+    where: { id: { in: ids } },
+    data: { deletedAt: new Date() },
+  });
+  revalidatePath("/timesheet");
+}
+
+export async function bulkRestore(ids: string[]) {
+  await prisma.taskEntry.updateMany({
+    where: { id: { in: ids } },
+    data: { deletedAt: null },
+  });
+  revalidatePath("/timesheet");
+  revalidatePath("/trash");
+}
+
 export async function getTrashedEntries() {
   return prisma.taskEntry.findMany({
     where: { deletedAt: { not: null } },
